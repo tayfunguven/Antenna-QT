@@ -8,32 +8,19 @@ from threading import Thread, Lock
 import sys, os
 from PyQt5.QtCore import QObject, QThread, QTimer, pyqtSignal, pyqtSlot
 
-# class Worker(QObject):
-#     finished = pyqtSignal()
-#     azimuth_val = pyqtSignal(int)
-
-#     def modbus_read(self):
-#         while True:
-#             try:
-#                 list = c.read_input_registers(0, 26)
-#                 az_val = list[12]
-#                 self.azimuth_val.emit(az_val)
-#                 self.finished.emit()
-#                 #el_val = list[5]
-#                 #cel_val = (el_val*120)/4092  
-#                 #self.el_lcdDisplay.display(float(cel_val))
-#             except Exception as e:
-#                 exc_type, exc_obj, exc_tb = sys.exc_info()
-#                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-#                 print(e)
-#                 #win32api.MessageBox(0,f'{exc_type}: {e}, {fname}',f'{exc_obj}',0x00000010)
-#             time.sleep(0.5)
-
 
 class Ui_MainWindow(QObject):
     @pyqtSlot(int)
-    def display(self, val):
-        self.az_lcdDisplay.display(val)
+    def display(self, az_pot_value):
+        self.az_lcdDisplay.display(az_pot_value)
+        self.el_lcdDisplay.display(self.convert(az_pot_value=az_pot_value))
+
+    def convert(self, az_pot_value):
+        max_val = 2428.0
+        min_val = 688.0
+        pot_interval = max_val-min_val
+        az_angle = (float(az_pot_value-min_val)*360.0)/pot_interval
+        return az_angle
 
     def run_modbus_read(self):
         self.thread = QThread()
@@ -41,8 +28,29 @@ class Ui_MainWindow(QObject):
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.modbus_read)
         self.worker.azimuth_value.connect(self.display)
-        
         self.thread.start()
+
+    def modbus_write(az_ctrl=0, el_ctrl=0, az_spd=0, el_spd=0):            
+            az_speed = az_spd
+            el_speed = el_spd
+            #1:CCW   2:CW   0:STOP
+            #1:UP   2:DOWN  0:STOP 
+            az_control = az_ctrl
+            el_control = el_ctrl
+            pol_speed = 0
+            pol_control = 0
+            home_internal_function = 0
+            reset_enc = 0
+            frequency = 0
+            symbol_route = 0
+            power_mode = 0
+            write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+            try:
+                c.write_multiple_registers(0, write_command_list)
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, exc_obj, exc_tb, fname, e)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -110,7 +118,6 @@ class Ui_MainWindow(QObject):
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-        #def conversion(az_val, el_val):
         # def modbus_write(az_control, el_control):            
         #     az_speed = 1000
         #     el_speed = 1000
@@ -134,27 +141,6 @@ class Ui_MainWindow(QObject):
         #         #time.sleep(0.001)
         # a = threading.Thread(name='modbus_write', target=modbus_write(az_control = 0, el_control = 0))
         # a.start()
-
-        '''def modbus_read():
-            while True:
-                try:
-                    list = c.read_input_registers(0, 26)
-                    az_val = list[12]
-                    caz_val = (az_val*360)/2940
-                    self.az_lcdDisplay.display(float(az_val))
-                    el_val = list[5]
-                    cel_val = (el_val*120)/4092  
-                    self.el_lcdDisplay.display(float(cel_val))
-                    #print("\npot_val: " + str(az_val))
-                    #print("angle: " + str(caz_val))
-                except Exception as e:
-                    exc_type, exc_obj, exc_tb = sys.exc_info()
-                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                    print(e)
-                    #win32api.MessageBox(0,f'{exc_type}: {e}, {fname}',f'{exc_obj}',0x00000010)
-                time.sleep(0.5)
-        b = threading.Thread(name='modbus_write', target=modbus_read)
-        b.start()'''
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate

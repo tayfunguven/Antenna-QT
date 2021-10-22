@@ -6,10 +6,15 @@ from multiprocessing import Process
 import threading
 from threading import Thread, Lock
 import sys, os
-from PyQt5.QtCore import QObject, QThread, QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QObject, QRunnable, QThread, QTimer, pyqtSignal, pyqtSlot
 
 
 class Ui_MainWindow(QObject):
+    #az_val = pyqtSignal(int)
+    #el_val = pyqtSignal(int)
+    #az_speed = pyqtSignal(int)
+    #el_speed = pyqtSignal(int)
+
     @pyqtSlot(int)
     def display(self, az_pot_value):
         self.az_lcdDisplay.display(az_pot_value)
@@ -22,12 +27,23 @@ class Ui_MainWindow(QObject):
         az_angle = (float(az_pot_value-min_val)*360.0)/pot_interval
         return az_angle
 
-    def run_modbus_read(self):
+    def run_go_to_position(self):
         self.thread = QThread()
+        self.worker = ModbusWorker()
+        self.worker.moveToThread(self.thread)
+        #self.az_val.emit(self.az_valLineEdit.text())
+        #self.az_val.connect(self.worker.go_to_position)
+        self.thread.started.connect(self.worker.go_to_position)
+        self.thread.start()
+
+
+    def run_modbus_read(self):
+        self.thread = QThread(parent=self)
         self.worker = ModbusWorker()
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.modbus_read)
         self.worker.azimuth_value.connect(self.display)
+        #self.thread.sleep(2)
         self.thread.start()
 
     def modbus_write(az_ctrl=0, el_ctrl=0, az_spd=0, el_spd=0):            
@@ -113,6 +129,8 @@ class Ui_MainWindow(QObject):
         # self.az_cwBtn.clicked.connect(lambda: modbus_write(az_control = 2, el_control = 0))
         # self.az_ccwBtn.clicked.connect(lambda: modbus_write(az_control = 1, el_control = 0))
 
+        self.btn_goToPosition.clicked.connect(self.run_go_to_position)
+        #self.el_upBtn.clicked.connect(self.run_modbus_read)
         #self.btn_goToPosition.clicked.connect(self.run_modbus_read)
         MainWindow.setStatusBar(self.statusbar)
         self.retranslateUi(MainWindow)
@@ -159,22 +177,46 @@ class Ui_MainWindow(QObject):
 class ModbusWorker(QObject):
     finished = pyqtSignal()
     azimuth_value = pyqtSignal(int)
+    read_list = pyqtSignal(list)
 
     def modbus_read(self):
         #send signal with a new value
         while True:
             list = c.read_input_registers(0, 26)
             az_val = list[12]
+            self.read_list.emit(list)
             self.azimuth_value.emit(az_val)
-            time.sleep(0.001)
+            time.sleep(1)
             self.finished.emit()
+
+    #@pyqtSlot(int)
+    def go_to_position(self):
+        while True:
+            az_speed = 1000
+            el_speed = 1000
+            #1:CCW   2:CW   0:STOP
+            #1:UP   2:DOWN  0:STOP 
+            pol_speed = 0
+            pol_control = 0
+            home_internal_function = 0
+            reset_enc = 0
+            frequency = 0
+            symbol_route = 0
+            power_mode = 0
+            write_command_list = [az_speed, el_speed, 2, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+            try:
+                c.write_multiple_registers(0, write_command_list)
+                time.sleep(2)
+            except Exception as e:
+                #win32api.MessageBox(0,f'{exc_type}: {e}, {fname}',f'{exc_obj}',0x00000010)
+                print(e)
+                #time.sleep(0.001)
         
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
-    c = ModbusClient(host="10.0.1.36", port=5002)
-    c.open()
+    c = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
     ui.run_modbus_read()

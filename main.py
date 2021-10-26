@@ -27,6 +27,15 @@ class Ui_MainWindow(QObject):
         az_angle = (float(az_pot_value-min_val)*360.0)/pot_interval
         return az_angle
 
+    def run_modbus_read(self):
+        self.thread = QThread(parent=self)
+        self.worker = ModbusWorker()
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.modbus_read)
+        self.worker.azimuth_value.connect(self.display)
+        #self.thread.sleep(2)
+        self.thread.start()
+
     def run_go_to_position(self):
         self.thread = QThread()
         self.worker = ModbusWorker()
@@ -38,15 +47,6 @@ class Ui_MainWindow(QObject):
         
         #self.az_val.emit(self.az_valLineEdit.text())
         #self.az_val.connect(self.worker.go_to_position)
-
-    def run_modbus_read(self):
-        self.thread = QThread(parent=self)
-        self.worker = ModbusWorker()
-        self.worker.moveToThread(self.thread)
-        self.thread.started.connect(self.worker.modbus_read)
-        self.worker.azimuth_value.connect(self.display)
-        #self.thread.sleep(2)
-        self.thread.start()
 
     # def modbus_write(az_ctrl=0, el_ctrl=0, az_spd=0, el_spd=0):            
     #         az_speed = az_spd
@@ -190,22 +190,45 @@ class ModbusWorker(QObject,):
             self.azimuth_value.emit(az_val)
             time.sleep(1)
             self.finished.emit()
+            return list
+
+    def convert_input_to_pot(self, angle):
+        max_val = 2428.0
+        min_val = 688.0
+        pot_interval = max_val-min_val
+        converted_pot = float(angle*pot_interval)/360.0
+        return converted_pot
+
 
     def go_to_position(self, val):
+        az_speed = 1000
+        el_speed = 1000
+        #1:CCW   2:CW   0:STOP
+        #1:UP   2:DOWN  0:STOP 
+        pol_speed = 0
+        pol_control = 0
+        home_internal_function = 0
+        reset_enc = 0
+        frequency = 0
+        symbol_route = 0
+        power_mode = 0
         while True:
-            print('Worker Go To Position' + str(val))
-            az_speed = 1000
-            el_speed = 1000
-            #1:CCW   2:CW   0:STOP
-            #1:UP   2:DOWN  0:STOP 
-            pol_speed = 0
-            pol_control = 0
-            home_internal_function = 0
-            reset_enc = 0
-            frequency = 0
-            symbol_route = 0
-            power_mode = 0
-            write_command_list = [az_speed, el_speed, val, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+            input_angle = self.convert_input_to_pot(angle=val)
+            list = self.modbus_read()
+            az_val = list[12]
+
+            if input_angle > az_val:
+                az_control = 1
+                time.sleep(0.01)
+            elif input_angle < az_val:
+                az_control = 2
+                time.sleep(0.01)
+            else:
+                az_control = 0
+                az_speed = 0
+                break
+            
+            write_command_list = [az_speed, el_speed, az_control, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
             try:
                 c.write_multiple_registers(0, write_command_list)
                 time.sleep(2)

@@ -10,7 +10,7 @@ from PyQt5.QtCore import QObject, QRunnable, QThread, QTimer, pyqtSignal, pyqtSl
 
 
 class Ui_MainWindow(QObject):
-    #az_val = pyqtSignal(int)
+    az_val = pyqtSignal()
     #el_val = pyqtSignal(int)
     #az_speed = pyqtSignal(int)
     #el_speed = pyqtSignal(int)
@@ -31,11 +31,13 @@ class Ui_MainWindow(QObject):
         self.thread = QThread()
         self.worker = ModbusWorker()
         self.worker.moveToThread(self.thread)
+        val = self.az_valLineEdit.text()
+        #print(self.az_valLineEdit.text())
+        self.thread.started.connect(self.worker.go_to_position(val=int(val)))
+        self.thread.start()
+        
         #self.az_val.emit(self.az_valLineEdit.text())
         #self.az_val.connect(self.worker.go_to_position)
-        self.thread.started.connect(self.worker.go_to_position)
-        self.thread.start()
-
 
     def run_modbus_read(self):
         self.thread = QThread(parent=self)
@@ -46,27 +48,27 @@ class Ui_MainWindow(QObject):
         #self.thread.sleep(2)
         self.thread.start()
 
-    def modbus_write(az_ctrl=0, el_ctrl=0, az_spd=0, el_spd=0):            
-            az_speed = az_spd
-            el_speed = el_spd
-            #1:CCW   2:CW   0:STOP
-            #1:UP   2:DOWN  0:STOP 
-            az_control = az_ctrl
-            el_control = el_ctrl
-            pol_speed = 0
-            pol_control = 0
-            home_internal_function = 0
-            reset_enc = 0
-            frequency = 0
-            symbol_route = 0
-            power_mode = 0
-            write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-            try:
-                c.write_multiple_registers(0, write_command_list)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                print(exc_type, exc_obj, exc_tb, fname, e)
+    # def modbus_write(az_ctrl=0, el_ctrl=0, az_spd=0, el_spd=0):            
+    #         az_speed = az_spd
+    #         el_speed = el_spd
+    #         #1:CCW   2:CW   0:STOP
+    #         #1:UP   2:DOWN  0:STOP 
+    #         az_control = az_ctrl
+    #         el_control = el_ctrl
+    #         pol_speed = 0
+    #         pol_control = 0
+    #         home_internal_function = 0
+    #         reset_enc = 0
+    #         frequency = 0
+    #         symbol_route = 0
+    #         power_mode = 0
+    #         write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+    #         try:
+    #             c.write_multiple_registers(0, write_command_list)
+    #         except Exception as e:
+    #             exc_type, exc_obj, exc_tb = sys.exc_info()
+    #             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    #             print(exc_type, exc_obj, exc_tb, fname, e)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -174,7 +176,7 @@ class Ui_MainWindow(QObject):
         self.az_cwBtn.setText(_translate("MainWindow", "CW"))
         self.display_groupBox.setTitle(_translate("MainWindow", "Displays"))
 
-class ModbusWorker(QObject):
+class ModbusWorker(QObject,):
     finished = pyqtSignal()
     azimuth_value = pyqtSignal(int)
     read_list = pyqtSignal(list)
@@ -189,9 +191,9 @@ class ModbusWorker(QObject):
             time.sleep(1)
             self.finished.emit()
 
-    #@pyqtSlot(int)
-    def go_to_position(self):
+    def go_to_position(self, val):
         while True:
+            print('Worker Go To Position' + str(val))
             az_speed = 1000
             el_speed = 1000
             #1:CCW   2:CW   0:STOP
@@ -203,13 +205,14 @@ class ModbusWorker(QObject):
             frequency = 0
             symbol_route = 0
             power_mode = 0
-            write_command_list = [az_speed, el_speed, 2, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+            write_command_list = [az_speed, el_speed, val, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
             try:
                 c.write_multiple_registers(0, write_command_list)
                 time.sleep(2)
             except Exception as e:
                 #win32api.MessageBox(0,f'{exc_type}: {e}, {fname}',f'{exc_obj}',0x00000010)
                 print(e)
+                break
                 #time.sleep(0.001)
         
 if __name__ == "__main__":

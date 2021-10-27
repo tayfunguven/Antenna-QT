@@ -43,7 +43,15 @@ class Ui_MainWindow(QObject):
         val = self.az_valLineEdit.text()
         #print(self.az_valLineEdit.text())
         self.thread.started.connect(self.worker.go_to_position(val=int(val)))
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
         self.thread.start()
+
+        self.btn_goToPosition.setEnabled(False)
+        self.thread.finished.connect(
+            lambda: self.btn_goToPosition.setEnabled(True)
+        )
         
         #self.az_val.emit(self.az_valLineEdit.text())
         #self.az_val.connect(self.worker.go_to_position)
@@ -188,7 +196,7 @@ class ModbusWorker(QObject,):
             az_val = list[12]
             self.read_list.emit(list)
             self.azimuth_value.emit(az_val)
-            time.sleep(1)
+            time.sleep(0.01)
             self.finished.emit()
             return list
 
@@ -196,12 +204,12 @@ class ModbusWorker(QObject,):
         max_val = 2428.0
         min_val = 688.0
         pot_interval = max_val-min_val
-        converted_pot = float(angle*pot_interval)/360.0
+        converted_pot = (angle*(pot_interval)/360) + min_val
         return converted_pot
 
 
     def go_to_position(self, val):
-        az_speed = 1000
+        az_speed = 500
         el_speed = 1000
         #1:CCW   2:CW   0:STOP
         #1:UP   2:DOWN  0:STOP 
@@ -212,32 +220,37 @@ class ModbusWorker(QObject,):
         frequency = 0
         symbol_route = 0
         power_mode = 0
+        print(val)
+        converted_pot = self.convert_input_to_pot(angle=val)
         while True:
-            input_angle = self.convert_input_to_pot(angle=val)
-            list = self.modbus_read()
-            az_val = list[12]
-
-            if input_angle > az_val:
-                az_control = 1
-                time.sleep(0.01)
-            elif input_angle < az_val:
-                az_control = 2
-                time.sleep(0.01)
-            else:
-                az_control = 0
-                az_speed = 0
-                break
-            
-            write_command_list = [az_speed, el_speed, az_control, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
             try:
-                c.write_multiple_registers(0, write_command_list)
-                time.sleep(2)
+                list = c.read_input_registers(0, 26)
+                print('Converted: ' + str(converted_pot))
+                az_val = list[12]
+                print('Azimuth: ' + str(az_val))
+                if az_val <= converted_pot+2 and az_val >= converted_pot-2:
+                    az_control = 0
+                    az_speed = 0
+                    write_command_list = [az_speed, el_speed, az_control, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+                    c.write_multiple_registers(0, write_command_list)
+                    self.finished.emit()
+                    time.sleep(1)
+                    break
+                elif converted_pot > az_val:
+                    az_control = 1
+                    write_command_list = [az_speed, el_speed, az_control, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+                    c.write_multiple_registers(0, write_command_list)
+                    time.sleep(0.01)
+                else:
+                    az_control = 2
+                    write_command_list = [az_speed, el_speed, az_control, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+                    c.write_multiple_registers(0, write_command_list)
+                    time.sleep(0.01)
             except Exception as e:
                 #win32api.MessageBox(0,f'{exc_type}: {e}, {fname}',f'{exc_obj}',0x00000010)
                 print(e)
                 break
                 #time.sleep(0.001)
-        
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)

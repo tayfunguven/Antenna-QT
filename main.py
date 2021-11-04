@@ -7,13 +7,11 @@ import threading
 from threading import Thread, Lock
 import sys, os
 from PyQt5.QtCore import QObject, QRunnable, QThread, QTimer, pyqtSignal, pyqtSlot
+from functools import partial
 
 
 class Ui_MainWindow(QObject):
     az_val = pyqtSignal()
-    #el_val = pyqtSignal(int)
-    #az_speed = pyqtSignal(int)
-    #el_speed = pyqtSignal(int)
 
     @pyqtSlot(int)
     def display(self, az_pot_value):
@@ -33,15 +31,17 @@ class Ui_MainWindow(QObject):
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.modbus_read)
         self.worker.azimuth_value.connect(self.display)
-        #self.thread.sleep(2)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
         self.thread.start()
 
     def run_go_to_position(self):
         self.thread = QThread()
         self.worker = ModbusWorker()
         self.worker.moveToThread(self.thread)
-        val = self.az_valLineEdit.text()
-        #print(self.az_valLineEdit.text())
+        #val = self.az_valLineEdit.text()
+        val = self.azimuth_input_dial.value()
         self.thread.started.connect(self.worker.go_to_position(val=int(val)))
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
@@ -50,37 +50,13 @@ class Ui_MainWindow(QObject):
 
         self.btn_goToPosition.setEnabled(False)
         self.thread.finished.connect(
-            lambda: self.btn_goToPosition.setEnabled(True)
+            partial(self.btn_goToPosition.setEnabled(True))
+            #lambda: 
         )
-        
-        #self.az_val.emit(self.az_valLineEdit.text())
-        #self.az_val.connect(self.worker.go_to_position)
-
-    # def modbus_write(az_ctrl=0, el_ctrl=0, az_spd=0, el_spd=0):            
-    #         az_speed = az_spd
-    #         el_speed = el_spd
-    #         #1:CCW   2:CW   0:STOP
-    #         #1:UP   2:DOWN  0:STOP 
-    #         az_control = az_ctrl
-    #         el_control = el_ctrl
-    #         pol_speed = 0
-    #         pol_control = 0
-    #         home_internal_function = 0
-    #         reset_enc = 0
-    #         frequency = 0
-    #         symbol_route = 0
-    #         power_mode = 0
-    #         write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-    #         try:
-    #             c.write_multiple_registers(0, write_command_list)
-    #         except Exception as e:
-    #             exc_type, exc_obj, exc_tb = sys.exc_info()
-    #             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-    #             print(exc_type, exc_obj, exc_tb, fname, e)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(503, 500)
+        MainWindow.resize(503, 510)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.input_groupBox = QtWidgets.QGroupBox(self.centralwidget)
@@ -105,6 +81,21 @@ class Ui_MainWindow(QObject):
         self.controls_groupBox.setGeometry(QtCore.QRect(240, 150, 251, 111))
         self.controls_groupBox.setObjectName("controls_groupBox")
         self.el_upBtn = QtWidgets.QPushButton(self.controls_groupBox)
+        self.azimuth_input_dial = QtWidgets.QDial(self.centralwidget)
+        self.azimuth_input_dial.setGeometry(QtCore.QRect(260, 275, 200, 200))
+        self.azimuth_input_dial.setAcceptDrops(False)
+        self.azimuth_input_dial.setLayoutDirection(QtCore.Qt.RightToLeft)
+        self.azimuth_input_dial.setAutoFillBackground(False)
+        self.azimuth_input_dial.setMaximum(360)
+        self.azimuth_input_dial.setPageStep(45)
+        self.azimuth_input_dial.setSliderPosition(0)
+        self.azimuth_input_dial.setTracking(True)
+        self.azimuth_input_dial.setOrientation(QtCore.Qt.Vertical)
+        self.azimuth_input_dial.setInvertedAppearance(True)
+        self.azimuth_input_dial.setInvertedControls(True)
+        self.azimuth_input_dial.setWrapping(True)
+        self.azimuth_input_dial.setNotchesVisible(True)
+        self.azimuth_input_dial.setObjectName("dial")
         self.el_upBtn.setGeometry(QtCore.QRect(90, 20, 75, 23))
         self.el_upBtn.setObjectName("el_upBtn")
         self.el_downBtn = QtWidgets.QPushButton(self.controls_groupBox)
@@ -134,41 +125,12 @@ class Ui_MainWindow(QObject):
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
-        # self.el_upBtn.clicked.connect(lambda: modbus_write(az_control = 0, el_control = 1))
-        # self.el_downBtn.clicked.connect(lambda: modbus_write(az_control = 0, el_control = 2))
-        # self.az_cwBtn.clicked.connect(lambda: modbus_write(az_control = 2, el_control = 0))
-        # self.az_ccwBtn.clicked.connect(lambda: modbus_write(az_control = 1, el_control = 0))
 
         self.btn_goToPosition.clicked.connect(self.run_go_to_position)
-        #self.el_upBtn.clicked.connect(self.run_modbus_read)
-        #self.btn_goToPosition.clicked.connect(self.run_modbus_read)
+
         MainWindow.setStatusBar(self.statusbar)
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
-
-        # def modbus_write(az_control, el_control):            
-        #     az_speed = 1000
-        #     el_speed = 1000
-        #     #1:CCW   2:CW   0:STOP
-        #     #1:UP   2:DOWN  0:STOP 
-        #     pol_speed = 0
-        #     pol_control = 0
-        #     home_internal_function = 0
-        #     reset_enc = 0
-        #     frequency = 0
-        #     symbol_route = 0
-        #     power_mode = 0
-        #     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        #     try:
-        #         c.write_multiple_registers(0, write_command_list)
-        #     except Exception as e:
-        #         exc_type, exc_obj, exc_tb = sys.exc_info()
-        #         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        #         #win32api.MessageBox(0,f'{exc_type}: {e}, {fname}',f'{exc_obj}',0x00000010)
-        #         print(e)
-        #         #time.sleep(0.001)
-        # a = threading.Thread(name='modbus_write', target=modbus_write(az_control = 0, el_control = 0))
-        # a.start()
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -187,14 +149,18 @@ class Ui_MainWindow(QObject):
 class ModbusWorker(QObject,):
     finished = pyqtSignal()
     azimuth_value = pyqtSignal(int)
-    read_list = pyqtSignal(list)
-
+    #read_list = []
+    
     def modbus_read(self):
         #send signal with a new value
         while True:
             list = c.read_input_registers(0, 26)
             az_val = list[12]
-            self.read_list.emit(list)
+            # if len(self.read_list) == 0:
+            #     self.read_list.append(list)
+            # else:
+            #     self.read_list.clear()
+            #     self.read_list.append(list)
             self.azimuth_value.emit(az_val)
             time.sleep(0.01)
             self.finished.emit()
@@ -207,9 +173,8 @@ class ModbusWorker(QObject,):
         converted_pot = (angle*(pot_interval)/360) + min_val
         return converted_pot
 
-
     def go_to_position(self, val):
-        az_speed = 500
+        az_speed = 2000
         el_speed = 1000
         #1:CCW   2:CW   0:STOP
         #1:UP   2:DOWN  0:STOP 
@@ -224,7 +189,9 @@ class ModbusWorker(QObject,):
         converted_pot = self.convert_input_to_pot(angle=val)
         while True:
             try:
-                list = c.read_input_registers(0, 26)
+                # print(self.read_list[0])
+                # list = self.read_list[0]
+                list = c.read_input_registers(0,26)
                 print('Converted: ' + str(converted_pot))
                 az_val = list[12]
                 print('Azimuth: ' + str(az_val))
@@ -233,8 +200,8 @@ class ModbusWorker(QObject,):
                     az_speed = 0
                     write_command_list = [az_speed, el_speed, az_control, 0, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
                     c.write_multiple_registers(0, write_command_list)
-                    self.finished.emit()
                     time.sleep(1)
+                    self.finished.emit()
                     break
                 elif converted_pot > az_val:
                     az_control = 1
@@ -251,6 +218,7 @@ class ModbusWorker(QObject,):
                 print(e)
                 break
                 #time.sleep(0.001)
+
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)

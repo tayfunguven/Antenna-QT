@@ -3,10 +3,8 @@ from pyModbusTCP.client import ModbusClient
 import time
 from multiprocessing import Process
 #import win32api
-import threading
-from threading import Thread, Lock
 import sys, os
-from PyQt5.QtCore import QObject, QRunnable, QThread, QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 from functools import partial
 
 class Ui_MainWindow(QObject):
@@ -54,7 +52,8 @@ class Ui_MainWindow(QObject):
         self.worker.moveToThread(self.thread)
         #val = self.az_valLineEdit.text()
         val = self.azimuthDialInput.value()
-        self.thread.started.connect(self.worker.go_to_position(val=int(val)))
+        val2 = self.elevationDialInput.value()
+        self.thread.started.connect(self.worker.go_to_position(val=int(val), val2=int(val2)))
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
@@ -66,7 +65,6 @@ class Ui_MainWindow(QObject):
         )
         
     def up(self):
-        print('CCCCLIIIICCKEEED')
         az_speed = 2000
         el_speed = 2000
         az_control = 0
@@ -138,9 +136,7 @@ class Ui_MainWindow(QObject):
         c.write_multiple_registers(0, write_command_list)
         c.close()
 
-
     def setupUi(self, MainWindow):
-     
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(820, 636)
         font = QtGui.QFont()
@@ -316,14 +312,12 @@ class Ui_MainWindow(QObject):
         self.azimuthLabel.setText(_translate("MainWindow", "Azimuth"))
         self.elevationLabel.setText(_translate("MainWindow", "Elevation"))
         self.goPositionButton.setText(_translate("MainWindow", "Go To Position"))
-        
 
-class ModbusWorker(QObject,):
+class ModbusWorker(QObject):
     finished = pyqtSignal()
     azimuth_value = pyqtSignal(int)
     elevation_value = pyqtSignal(int)
     #read_list = []
-    
     def modbus_read(self):
         #send signal with a new value
         while True:
@@ -332,10 +326,9 @@ class ModbusWorker(QObject,):
             el_val = list[5]
             self.azimuth_value.emit(az_val)
             self.elevation_value.emit(el_val)
-            time.sleep(0.01)
             self.finished.emit()
+            time.sleep(0.01)
             
-
     def convert_input_to_pot(self, angle):
         max_val = 2428.0
         min_val = 688.0
@@ -343,7 +336,14 @@ class ModbusWorker(QObject,):
         converted_pot = (angle*(pot_interval)/360) + min_val
         return converted_pot
 
-    def go_to_position(self, val):
+    def convert_input_to_cli(self, angle):
+        max_val = 4092.0
+        min_val = 316.0
+        cli_interval = max_val-min_val
+        converted_cli = (angle*(cli_interval)/120) + min_val
+        return converted_cli
+
+    def go_to_position(self, val, val2):
         az_speed = 2000
         el_speed = 1000
         #1:CCW   2:CW   0:STOP
@@ -355,17 +355,14 @@ class ModbusWorker(QObject,):
         frequency = 0
         symbol_route = 0
         power_mode = 0
-        print(val)
         converted_pot = self.convert_input_to_pot(angle=val)
+        converted_cli = self.convert_input_to_cli(angle=val2)
         while True:
             try:
-                # print(self.read_list[0])
-                # list = self.read_list[0]
                 list = c.read_input_registers(0, 26)
-                print('Angle: ' + str(val))
-                print('Converted: ' + str(converted_pot))
                 az_val = list[12]
-                print('Azimuth: ' + str(az_val))
+                el_val = list[5]
+        
                 if az_val <= converted_pot+2 and az_val >= converted_pot-2:
                     az_control = 0
                     el_control = 0
@@ -373,7 +370,7 @@ class ModbusWorker(QObject,):
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
                     c.write_multiple_registers(0, write_command_list)
                     time.sleep(1)
-                    break
+                    
                 elif converted_pot > az_val:
                     az_control = 1
                     el_control = 0
@@ -385,12 +382,30 @@ class ModbusWorker(QObject,):
                     el_control = 0
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
                     c.write_multiple_registers(0, write_command_list)
-                    time.sleep(0.01)
+                    time.sleep(1)
+
+                if el_val <= converted_cli+2 and el_val >= converted_cli-2:
+                    az_control = 0
+                    el_control = 0
+                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+                    c.write_multiple_registers(0, write_command_list)
+                    time.sleep(1)
+                elif converted_cli > el_val:
+                    az_control = 0
+                    el_control = 1
+                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+                    c.write_multiple_registers(0, write_command_list)
+                    time.sleep(1)
+                else:
+                    az_control = 0
+                    el_control = 2
+                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
+                    c.write_multiple_registers(0, write_command_list)
+                    time.sleep(1)
             except Exception as e:
                 print(e)
-                break
-        c.close()
-        self.finished.emit()
+                time.sleep(0.001)
+            self.finished.emit()
 
 if __name__ == "__main__":
     import sys

@@ -79,8 +79,8 @@ class Ui_MainWindow(QObject):
         symbol_route = 0
         power_mode = 0
         write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        c.write_multiple_registers(0, write_command_list)
-        c.close()
+        connection_read.write_multiple_registers(0, write_command_list)
+        connection_read.close()
 
     def down(self):
         az_speed = 2000
@@ -97,8 +97,8 @@ class Ui_MainWindow(QObject):
         symbol_route = 0
         power_mode = 0
         write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        c.write_multiple_registers(0, write_command_list)
-        c.close()
+        connection_read.write_multiple_registers(0, write_command_list)
+        connection_read.close()
 
     def ccw(self):
         az_speed = 2000
@@ -115,8 +115,8 @@ class Ui_MainWindow(QObject):
         symbol_route = 0
         power_mode = 0
         write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        c.write_multiple_registers(0, write_command_list)
-        c.close()
+        connection_read.write_multiple_registers(0, write_command_list)
+        connection_read.close()
 
     def cw(self):
         az_speed = 2000
@@ -133,8 +133,8 @@ class Ui_MainWindow(QObject):
         symbol_route = 0
         power_mode = 0
         write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        c.write_multiple_registers(0, write_command_list)
-        c.close()
+        connection_read.write_multiple_registers(0, write_command_list)
+        connection_read.close()
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -321,7 +321,7 @@ class ModbusWorker(QObject):
     def modbus_read(self):
         #send signal with a new value
         while True:
-            list = c.read_input_registers(0, 26)
+            list = connection_read.read_input_registers(0, 26)
             az_val = list[12]
             el_val = list[5]
             self.azimuth_value.emit(az_val)
@@ -359,7 +359,7 @@ class ModbusWorker(QObject):
         converted_cli = self.convert_input_to_cli(angle=val2)
         while True:
             try:
-                list = c.read_input_registers(0, 26)
+                list = connection_read.read_input_registers(0, 26)
                 az_val = list[12]
                 el_val = list[5]
         
@@ -368,39 +368,39 @@ class ModbusWorker(QObject):
                     el_control = 0
                     az_speed = 0
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    c.write_multiple_registers(0, write_command_list)
+                    connection_write.write_multiple_registers(0, write_command_list)
                     time.sleep(1)
                     
                 elif converted_pot > az_val:
                     az_control = 1
                     el_control = 0
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    c.write_multiple_registers(0, write_command_list)
+                    connection_write.write_multiple_registers(0, write_command_list)
                     time.sleep(0.01)
                 else:
                     az_control = 2
                     el_control = 0
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    c.write_multiple_registers(0, write_command_list)
+                    connection_write.write_multiple_registers(0, write_command_list)
                     time.sleep(1)
 
                 if el_val <= converted_cli+2 and el_val >= converted_cli-2:
                     az_control = 0
                     el_control = 0
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    c.write_multiple_registers(0, write_command_list)
+                    connection_write.write_multiple_registers(0, write_command_list)
                     time.sleep(1)
                 elif converted_cli > el_val:
                     az_control = 0
                     el_control = 1
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    c.write_multiple_registers(0, write_command_list)
+                    connection_write.write_multiple_registers(0, write_command_list)
                     time.sleep(1)
                 else:
                     az_control = 0
                     el_control = 2
                     write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    c.write_multiple_registers(0, write_command_list)
+                    connection_write.write_multiple_registers(0, write_command_list)
                     time.sleep(1)
             except Exception as e:
                 print(e)
@@ -411,7 +411,8 @@ if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
-    c = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
+    connection_read = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
+    connection_write = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
     ui.run_modbus_read()

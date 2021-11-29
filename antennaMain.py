@@ -1,9 +1,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pyModbusTCP.client import ModbusClient
 import time
-from multiprocessing import Process
 #import win32api
-import sys, os
+import sys
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 from functools import partial
 

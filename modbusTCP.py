@@ -1,9 +1,8 @@
 from pyModbusTCP.client import ModbusClient
 from threading import Thread
 
-connection_read = ModbusClient(host='10.0.1.36', port=5002, auto_open=True, auto_close=True)
-connection_write = ModbusClient(host='10.0.1.36', port=5002, auto_open=True, auto_close=True)
-
+connection_write = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
+connection_read = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
 def read_data():
     while connection_read:
         data = connection_read.read_input_registers(0, 26)
@@ -15,8 +14,8 @@ def write_data():
     el_speed = 1000
     #1:CCW   2:CW   0:STOP
     #1:UP   2:DOWN  0:STOP 
-    az_control = 2
-    el_control = 1
+    az_control = 0
+    el_control = 0
     pol_speed = 0
     pol_control = 0
     home_internal_function = 0

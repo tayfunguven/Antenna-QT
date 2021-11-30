@@ -25,10 +25,10 @@ class ModbusTCPConnection:
             )
 
             if write_bus and read_bus:
-                print("Read connected successfully!")
+                print("Connected successfully!")
                 return read_bus, write_bus
             else:
-                print("Read connection failed!")
+                print("Connection failed!")
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()

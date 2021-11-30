@@ -1,140 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from pyModbusTCP.client import ModbusClient
-import time
-#import win32api
-import sys
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
-from functools import partial
 
 class Ui_MainWindow(QObject):
-    az_val = pyqtSignal()
-
-    @pyqtSlot(int)
-    def display(self, az_pot_value):
-        self.azimuthDialDisplay.setValue(int(self.convert(az_pot_value)))
-        self.azimuthLCDDisplay.display(int(self.convert(az_pot_value)))
-
-    @pyqtSlot(int)
-    def display2(self, el_clinometer_value):
-        self.elevationDialDisplay.setValue(int(self.convert(el_clinometer_value)))
-        self.elevationLCDDisplay.display(int(self.convert(el_clinometer_value)))
-        
-    def convert(self, az_pot_value):
-        max_val = 2428.0
-        min_val = 688.0
-        pot_interval = max_val-min_val
-        az_angle = (float(az_pot_value-min_val)*360.0)/pot_interval
-        return az_angle
-
-    def convert2(self, el_clinometer_value):
-        min_val2 = 312.00
-        max_val2 = 4092.00
-        clinometer_interval = max_val2-min_val2
-        el_angle = (float(el_clinometer_value-min_val2)*120.0)/clinometer_interval
-        return el_angle
-
-    def run_modbus_read(self):
-        self.thread = QThread(parent=self)
-        self.worker = ModbusWorker()
-        self.worker.moveToThread(self.thread)
-        self.thread.started.connect(self.worker.modbus_read)
-        self.worker.azimuth_value.connect(self.display)
-        self.worker.elevation_value.connect(self.display2)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.start()
-
-    def run_go_to_position(self):
-        self.thread = QThread()
-        self.worker = ModbusWorker()
-        self.worker.moveToThread(self.thread)
-        #val = self.az_valLineEdit.text()
-        val = self.azimuthDialInput.value()
-        val2 = self.elevationDialInput.value()
-        self.thread.started.connect(self.worker.go_to_position(val=int(val), val2=int(val2)))
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.start()
-
-        self.goPositionButton.setEnabled(False)
-        self.thread.finished.connect(
-            partial(self.goPositionButton.setEnabled(True))
-        )
-        
-    def up(self):
-        az_speed = 2000
-        el_speed = 2000
-        az_control = 0
-        el_control = 1
-        #1:CCW   2:CW   0:STOP
-        #1:UP   2:DOWN  0:STOP 
-        pol_speed = 0
-        pol_control = 0
-        home_internal_function = 0
-        reset_enc = 0
-        frequency = 0
-        symbol_route = 0
-        power_mode = 0
-        write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        connection_read.write_multiple_registers(0, write_command_list)
-        connection_read.close()
-
-    def down(self):
-        az_speed = 2000
-        el_speed = 2000
-        az_control = 0
-        el_control = 2
-        #1:CCW   2:CW   0:STOP
-        #1:UP   2:DOWN  0:STOP 
-        pol_speed = 0
-        pol_control = 0
-        home_internal_function = 0
-        reset_enc = 0
-        frequency = 0
-        symbol_route = 0
-        power_mode = 0
-        write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        connection_read.write_multiple_registers(0, write_command_list)
-        connection_read.close()
-
-    def ccw(self):
-        az_speed = 2000
-        el_speed = 2000
-        az_control = 1
-        el_control = 0
-        #1:CCW   2:CW   0:STOP
-        #1:UP   2:DOWN  0:STOP 
-        pol_speed = 0
-        pol_control = 0
-        home_internal_function = 0
-        reset_enc = 0
-        frequency = 0
-        symbol_route = 0
-        power_mode = 0
-        write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        connection_read.write_multiple_registers(0, write_command_list)
-        connection_read.close()
-
-    def cw(self):
-        az_speed = 2000
-        el_speed = 2000
-        az_control = 2
-        el_control = 0
-        #1:CCW   2:CW   0:STOP
-        #1:UP   2:DOWN  0:STOP 
-        pol_speed = 0
-        pol_control = 0
-        home_internal_function = 0
-        reset_enc = 0
-        frequency = 0
-        symbol_route = 0
-        power_mode = 0
-        write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-        connection_read.write_multiple_registers(0, write_command_list)
-        connection_read.close()
-
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(820, 636)
@@ -289,11 +156,6 @@ class Ui_MainWindow(QObject):
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
-        self.goPositionButton.clicked.connect(self.run_go_to_position)
-        self.upButton.clicked.connect(self.up)
-        self.downButton.clicked.connect(self.down)
-        self.cwButton.clicked.connect(self.cw)
-        self.ccwButton.clicked.connect(self.ccw)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -312,108 +174,12 @@ class Ui_MainWindow(QObject):
         self.elevationLabel.setText(_translate("MainWindow", "Elevation"))
         self.goPositionButton.setText(_translate("MainWindow", "Go To Position"))
 
-class ModbusWorker(QObject):
-    finished = pyqtSignal()
-    azimuth_value = pyqtSignal(int)
-    elevation_value = pyqtSignal(int)
-    #read_list = []
-    def modbus_read(self):
-        #send signal with a new value
-        while True:
-            list = connection_read.read_input_registers(0, 26)
-            az_val = list[12]
-            el_val = list[5]
-            self.azimuth_value.emit(az_val)
-            self.elevation_value.emit(el_val)
-            self.finished.emit()
-            time.sleep(0.01)
-            
-    def convert_input_to_pot(self, angle):
-        max_val = 2428.0
-        min_val = 688.0
-        pot_interval = max_val-min_val
-        converted_pot = (angle*(pot_interval)/360) + min_val
-        return converted_pot
-
-    def convert_input_to_cli(self, angle):
-        max_val = 4092.0
-        min_val = 316.0
-        cli_interval = max_val-min_val
-        converted_cli = (angle*(cli_interval)/120) + min_val
-        return converted_cli
-
-    def go_to_position(self, val, val2):
-        az_speed = 2000
-        el_speed = 1000
-        #1:CCW   2:CW   0:STOP
-        #1:UP   2:DOWN  0:STOP 
-        pol_speed = 0
-        pol_control = 0
-        home_internal_function = 0
-        reset_enc = 0
-        frequency = 0
-        symbol_route = 0
-        power_mode = 0
-        converted_pot = self.convert_input_to_pot(angle=val)
-        converted_cli = self.convert_input_to_cli(angle=val2)
-        while True:
-            try:
-                list = connection_read.read_input_registers(0, 26)
-                az_val = list[12]
-                el_val = list[5]
-        
-                if az_val <= converted_pot+2 and az_val >= converted_pot-2:
-                    az_control = 0
-                    el_control = 0
-                    az_speed = 0
-                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    connection_write.write_multiple_registers(0, write_command_list)
-                    time.sleep(1)
-                    
-                elif converted_pot > az_val:
-                    az_control = 1
-                    el_control = 0
-                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    connection_write.write_multiple_registers(0, write_command_list)
-                    time.sleep(0.01)
-                else:
-                    az_control = 2
-                    el_control = 0
-                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    connection_write.write_multiple_registers(0, write_command_list)
-                    time.sleep(1)
-
-                if el_val <= converted_cli+2 and el_val >= converted_cli-2:
-                    az_control = 0
-                    el_control = 0
-                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    connection_write.write_multiple_registers(0, write_command_list)
-                    time.sleep(1)
-                elif converted_cli > el_val:
-                    az_control = 0
-                    el_control = 1
-                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    connection_write.write_multiple_registers(0, write_command_list)
-                    time.sleep(1)
-                else:
-                    az_control = 0
-                    el_control = 2
-                    write_command_list = [az_speed, el_speed, az_control, el_control, pol_speed, pol_control, home_internal_function, reset_enc, frequency, symbol_route, power_mode]
-                    connection_write.write_multiple_registers(0, write_command_list)
-                    time.sleep(1)
-            except Exception as e:
-                print(e)
-                time.sleep(0.001)
-            self.finished.emit()
 
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
-    connection_read = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
-    connection_write = ModbusClient(host="10.0.1.36", port=5002, auto_open=True, auto_close=True)
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
-    ui.run_modbus_read()
     MainWindow.show()
     sys.exit(app.exec_())
